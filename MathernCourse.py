@@ -1,7 +1,7 @@
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.options import Options
 import time
-import pandas as pd 
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import Select
@@ -12,11 +12,16 @@ import re
 
 conn = mysql.connector.connect(
     host="localhost",
-    user="root",
+    user="tomadmin",
+    password="BlackSage44$",
     database="golfdb"
 )
 
-
+options = Options()
+options.add_argument('--headless')  # Run in background
+options.add_argument('--no-sandbox')
+options.add_argument('--disable-dev-shm-usage')
+options.binary_location = "/usr/bin/chromium-browser"
 
 class Slot:
     def __init__(self, timeslot, price):
@@ -32,9 +37,7 @@ WoodlandsMastersSlots = {}
 WoodlandsSignatureSlots = {}
 
 # Set up the Chrome WebDriver
-chrome_options = Options()
-chrome_options.add_argument("--headless=new") 
-driver = webdriver.Chrome(options=chrome_options)
+driver = webdriver.Chrome(options=options)
 time.sleep(5)
 
 daterange = []
