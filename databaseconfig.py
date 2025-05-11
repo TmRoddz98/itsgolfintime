@@ -3,9 +3,9 @@ import mysql.connector
 # Set your DB config here
 db_config = {
     'host': 'localhost',
-    'user': 'your_username',
-    'password': 'your_password',
-    'database': 'your_database_name'
+    'user': 'tomadmin',
+    'password': 'BlackSage44$',
+    'database': 'golfdb'
 }
 
 # Connect to MySQL
