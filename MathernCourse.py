@@ -7,21 +7,26 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import Select
 import datetime
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service 
 import mysql.connector
 import re
+from sshtunnel import SSHTunnelForwarder
 
-conn = mysql.connector.connect(
-    host="localhost",
-    user="tomadmin",
-    password="BlackSage44$",
-    database="golfdb"
-)
+
+# SSH and DB config
+ssh_host = '213.165.88.79'
+ssh_port = 22
+ssh_username = 'tunneluser'
+ssh_private_key = '/Users/tomroderick/.ssh/id_ed25518.pub'
+
+
 
 options = Options()
 options.add_argument('--headless')  # Run in background
 options.add_argument('--no-sandbox')
 options.add_argument('--disable-dev-shm-usage')
-options.binary_location = "/usr/bin/chromium-browser"
+# options.binary_location = 
+service = Service("/usr/local/bin/chromedriver")
 
 class Slot:
     def __init__(self, timeslot, price):
@@ -37,7 +42,7 @@ WoodlandsMastersSlots = {}
 WoodlandsSignatureSlots = {}
 
 # Set up the Chrome WebDriver
-driver = webdriver.Chrome(options=options)
+driver = webdriver.Chrome(options=options, service=service)
 time.sleep(5)
 
 daterange = []
@@ -221,39 +226,64 @@ Courses = {
 "Woodlands Masters Course" : WoodlandsMastersSlots,
 "Woodlands Signature Course" : WoodlandsSignatureSlots
 }
-cursor = conn.cursor()
 
-# Clear slots
+server = SSHTunnelForwarder(
+    (ssh_host, ssh_port),
+    ssh_username=ssh_username,
+    ssh_pkey=ssh_private_key,
+    remote_bind_address=('127.0.0.1', 3306),
+    local_bind_address=('127.0.0.1', 3307),  # local port used on your machine
+) 
+   
+server.start()
+print("tunnel started")
+conn = mysql.connector.connect(
+host="127.0.0.1",
+user="tomadmin",
+password="BlackSage44$",
+port=3307,
+database="golfdb",
+use_pure="true"
+)
+cursor = conn.cursor(buffered=True)
+print("cursor connected")
+cursor.execute("DROP TABLE IF EXISTS test_connection")
+cursor.execute("""
+        CREATE TABLE test_connection (
+            id INT PRIMARY KEY AUTO_INCREMENT,
+            message VARCHAR(255)
+        )
+    """)
+conn.commit()
+cursor.execute("INSERT INTO test_connection (message) VALUES ('Hello from Python!')")
+conn.commit()
+    # Clear slots
 cursor.execute("DELETE FROM slots")
 conn.commit()
+print("slots cleared")
 
+    
 for course_name, dates in Courses.items():
-    # Insert course if it doesn't exist
-    cursor.execute("INSERT IGNORE INTO courses (name) VALUES (%s)", (course_name,))
-    conn.commit()
+        # Insert course if it doesn't exist
+        cursor.execute("INSERT IGNORE INTO courses (name) VALUES (%s)", (course_name,))
+        conn.commit()
 
-    
+        # Get course_id right after inserting
+        cursor.execute("SELECT id FROM courses WHERE name = %s", (course_name,))
+        course_id = cursor.fetchone()[0]
 
-    # Get course_id
-    cursor.execute("SELECT id FROM courses WHERE name = %s", (course_name,))
-    course_id = cursor.fetchone()[0]
-    
-    for date_str, slot_list in dates.items():
-        for slot in slot_list:
-            time_str = slot.timeslot
-            try: 
-                price_str = slot.price.replace("£", "").strip()
-            except:
-                price_str = slot.price
-            cursor.execute(
-                "INSERT INTO slots (course_id, date, time, price) VALUES (%s, %s, %s, %s)",
-                (course_id, date_str, time_str, price_str)
-            )
-
+        for date_str, slot_list in dates.items():
+            for slot in slot_list:
+                time_str = slot.timeslot
+                try:
+                    price_str = slot.price.replace("£", "").strip()
+                except:
+                    price_str = slot.price
+                cursor.execute(
+                    "INSERT INTO slots (course_id, date, time, price) VALUES (%s, %s, %s, %s)",
+                    (course_id, date_str, time_str, price_str)
+                )
 conn.commit()
-
 cursor.close()
 conn.close()
-print(Courses)
-# Close the browser
-driver.quit()
+server.stop()
