@@ -1,6 +1,9 @@
 from flask import Flask, render_template, request
 import mysql.connector
-from datetime import datetime
+import datetime
+from zoneinfo import ZoneInfo
+from astral import LocationInfo
+from astral.sun import sun
 
 app = Flask(__name__)
 
@@ -8,8 +11,8 @@ app = Flask(__name__)
 def get_db_connection():
     return mysql.connector.connect(
         host="localhost",
-        user="tomadmin",
-        password="BlackSage44$",
+        user="",
+        password="",
         database="golfdb"
     )
 
@@ -23,8 +26,14 @@ def index():
     cursor.execute("SELECT DISTINCT name FROM courses")
     courses = [row[0] for row in cursor.fetchall()]
     conn.close()
-
-    return render_template('index.html', courses=courses)
+    curdate = datetime.date.today()
+    curtime = datetime.datetime.now(ZoneInfo("Europe/London")).time()
+    curtime = str(curtime)[:5]
+    london = LocationInfo("London", "England", "Europe/London", 51.5074, -0.1278)
+    s = sun(london.observer, date=curdate, tzinfo=london.timezone)
+    endtime = str(s['sunset'].time())[:5]
+    print(endtime)
+    return render_template('index.html', courses=courses,curdate=curdate,curtime=curtime, endtime=endtime)
 
 @app.route('/results', methods=['GET', 'POST'])
 def results():
@@ -52,3 +61,4 @@ def results():
 
 if __name__ == '__main__':
     app.run(debug=True)
+  
